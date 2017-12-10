@@ -34,6 +34,25 @@ function getCaptainDefinitionTempFolder(serviceName, randomSuffix) {
     return CaptainConstants.captainDefinitionTempDir + '/' + serviceName + '/' + randomSuffix;
 }
 
+function collidesWithAnyExistingApp(apps, rootDomain, customDomain) {
+    if (customDomain === rootDomain) {
+        const apexAppAlreadyExists = !!apps['@'];
+        return apexAppAlreadyExists;
+    }
+
+    const rootDomainFoundAtIndex = customDomain.indexOf('.' + rootDomain);
+    if (rootDomainFoundAtIndex > -1) {
+        const appName = customDomain.slice(0, rootDomainFoundAtIndex);
+        const looksLikeAppUnderRootDomain = appName + '.' + rootDomain === customDomain;
+        if (looksLikeAppUnderRootDomain) {
+            const appAlreadyExists = !!apps[appName];
+            return appAlreadyExists;
+        }
+    }
+
+    return false;
+}
+
 
 class BuildLog {
 
@@ -448,6 +467,11 @@ class ServiceManager {
         return Promise.resolve()
             .then(function () {
 
+                return self.dataStore.getAppDefinitions();
+
+            })
+            .then(function (apps) {
+
                 let rootDomain = self.dataStore.getRootDomain();
                 let dotRootDomain = "." + rootDomain;
 
@@ -472,6 +496,10 @@ class ServiceManager {
                         'Domain name is not accepted. Custom domain cannot be subdomain of root domain.');
                 }
 
+                if (collidesWithAnyExistingApp(apps, rootDomain, customDomain)) {
+                    throw ApiStatusCodes.createError(ApiStatusCodes.STATUS_ERROR_BAD_NAME,
+                        'Domain name is not accepted. Custom domain collides with existing app.');
+                }
 
             })
             .then(function () {
@@ -565,7 +593,7 @@ class ServiceManager {
                     throw new Error('Unknown app');
                 }
 
-                return appName + '.' + rootDomain;
+                return appName === '@' ? rootDomain : appName + '.' + rootDomain;
 
             })
             .then(function (domainName) {
@@ -619,7 +647,7 @@ class ServiceManager {
                     throw new Error('Unknown app');
                 }
 
-                return appName + '.' + rootDomain;
+                return appName === '@' ? rootDomain : appName + '.' + rootDomain;
 
             })
             .then(function (domainName) {

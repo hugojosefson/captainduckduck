@@ -31,7 +31,11 @@ const DEFAULT_NGINX_CAPTAIN_CONFIG = fs.readFileSync(__dirname + '/../template/r
 const DEFAULT_NGINX_CONFIG_FOR_APP = fs.readFileSync(__dirname + '/../template/server-block-conf.ejs').toString();
 
 function isNameAllowed(name) {
-    let isNameFormattingOk = (!!name) && (name.length < 50) && /^[a-z]/.test(name) && /[a-z0-9]$/.test(name) && /^[a-z0-9\-]+$/.test(name) && name.indexOf('--') < 0;
+    let isNameFormattingOk = (!!name) && (name.length < 50) && (name === '@' || /^[a-z]/.test(name) && /[a-z0-9]$/.test(name) && /^[a-z0-9\-]+$/.test(name) && name.indexOf('--') < 0);
+}
+
+function isAppNameAllowed(name) {
+    return name === '@' || isNameAllowed(name);
     return isNameFormattingOk && (['captain', 'registry'].indexOf(name) < 0);
 }
 
@@ -125,7 +129,7 @@ class DataStore {
     }
 
     getServiceName(appName) {
-        return 'srv-' + this.getNameSpace() + '--' + appName;
+        return 'srv-' + this.getNameSpace() + '--' + (appName === '@' ? '--' : appName);
     }
 
     getImageName(authObj, appName, version) {
@@ -145,7 +149,7 @@ class DataStore {
             version = '0';
         }
 
-        return this.getImageNameBase() + appName + (version ? (':' + version) : '');
+        return this.getImageNameBase() + (appName === '@' ? '--' : appName) + (version ? (':' + version) : '');
     }
 
     getImageNameBase() {
@@ -362,7 +366,7 @@ class DataStore {
 
                     let serverWithSubDomain = {};
                     serverWithSubDomain.hasSsl = hasRootSsl && webApp.hasDefaultSubDomainSsl;
-                    serverWithSubDomain.publicDomain = appName + '.' + rootDomain;
+                    serverWithSubDomain.publicDomain = appName === '@' ? rootDomain : appName + '.' + rootDomain;
                     serverWithSubDomain.localDomain = localDomain;
                     serverWithSubDomain.forceSsl = forceSsl;
                     serverWithSubDomain.nginxConfigTemplate = nginxConfigTemplate;
@@ -875,13 +879,13 @@ class DataStore {
 
         return new Promise(function (resolve, reject) {
 
-            if (!isNameAllowed(appName)) {
-                reject(ApiStatusCodes.createError(ApiStatusCodes.STATUS_ERROR_BAD_NAME, 'App Name is not allow. Only lowercase letters and single hyphen is allow'));
+            if (!isAppNameAllowed(appName)) {
+                reject(ApiStatusCodes.createError(ApiStatusCodes.STATUS_ERROR_BAD_NAME, 'App Name is not allowed. Only lowercase letters and single hyphen, or a single \'@\' is allowed.'));
                 return;
             }
 
             if (!!self.data.get(APP_DEFINITIONS + '.' + appName)) {
-                reject(ApiStatusCodes.createError(ApiStatusCodes.STATUS_ERROR_ALREADY_EXIST, 'App Name already exists. Please use a different name'));
+                reject(ApiStatusCodes.createError(ApiStatusCodes.STATUS_ERROR_ALREADY_EXIST, 'App Name already exists. Please use a different name.'));
                 return;
             }
 
@@ -907,8 +911,8 @@ class DataStore {
 
         return new Promise(function (resolve, reject) {
 
-            if (!isNameAllowed(appName)) {
-                reject(ApiStatusCodes.createError(ApiStatusCodes.STATUS_ERROR_BAD_NAME, 'App Name is not allow. Only lowercase letters and single hyphen is allow'));
+            if (!isAppNameAllowed(appName)) {
+                reject(ApiStatusCodes.createError(ApiStatusCodes.STATUS_ERROR_BAD_NAME, 'App Name is not allowed. Only lowercase letters and single hyphen, or a single \'@\' is allowed.'));
                 return;
             }
 

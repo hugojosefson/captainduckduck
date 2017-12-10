@@ -150,7 +150,7 @@ function AppDetailsCtrl($scope,
 
                 captainToast.showToastSuccess(
                     'HTTPS is now enabled for your domain at https://'
-                    + appName + '.' + rootDomain);
+                    + (appName === '@' ? rootDomain : appName + '.' + rootDomain));
                 $state.reload();
 
             });
