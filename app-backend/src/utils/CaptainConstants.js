@@ -9,7 +9,7 @@ const CAPTAIN_ROOT_DIRECTORY_GENERATED = CAPTAIN_ROOT_DIRECTORY + '/generated';
 let data = {
     apiVersion: 'v1',
 
-    publishedNameOnDockerHub: 'dockersaturn/captainduckduck',
+    publishedNameOnDockerHub: 'hugojosefson/captainduckduck',
 
     certbotImageName: 'dockersaturn/certbot-sleeping:v0.17.0',
 
@@ -27,7 +27,7 @@ let data = {
 
     isDebug: EnvVars.CAPTAIN_IS_DEBUG,
 
-    version: '0.7.1',
+    version: 'apex',
 
     captainSaltSecretKey: 'captain-salt',
 
