@@ -8,6 +8,7 @@ const ApiStatusCodes = require('../api/ApiStatusCodes');
 const TemplateHelper = require('./TemplateHelper');
 const Authenticator = require('./Authenticator');
 const GitHelper = require('../utils/GitHelper');
+const {checkNameAvailability} = require('../utils/Availability');
 const uuid = require('uuid/v4');
 const requireFromString = require('require-from-string');
 
@@ -32,25 +33,6 @@ function getTarImageBaseFolder(imageName, newVersionPulled) {
 
 function getCaptainDefinitionTempFolder(serviceName, randomSuffix) {
     return CaptainConstants.captainDefinitionTempDir + '/' + serviceName + '/' + randomSuffix;
-}
-
-function collidesWithAnyExistingApp(apps, rootDomain, customDomain) {
-    if (customDomain === rootDomain) {
-        const apexAppAlreadyExists = !!apps['@'];
-        return apexAppAlreadyExists;
-    }
-
-    const rootDomainFoundAtIndex = customDomain.indexOf('.' + rootDomain);
-    if (rootDomainFoundAtIndex > -1) {
-        const appName = customDomain.slice(0, rootDomainFoundAtIndex);
-        const looksLikeAppUnderRootDomain = appName + '.' + rootDomain === customDomain;
-        if (looksLikeAppUnderRootDomain) {
-            const appAlreadyExists = !!apps[appName];
-            return appAlreadyExists;
-        }
-    }
-
-    return false;
 }
 
 
@@ -467,10 +449,23 @@ class ServiceManager {
         return Promise.resolve()
             .then(function () {
 
+                const isFormattedCorrectly = (!!customDomain)
+                    && (customDomain.length < 80)
+                    && /^[a-z0-9\-\.]+$/.test(customDomain)
+                    && (customDomain.indexOf('..') < 0);
+
+                if (!isFormattedCorrectly) {
+                    throw ApiStatusCodes.createError(ApiStatusCodes.STATUS_ERROR_BAD_NAME,
+                        'Domain name is not accepted. Please use alphanumerical domains such as myapp.google123.ca');
+                }
+
+            })
+            .then(function () {
+
                 return self.dataStore.getAppDefinitions();
 
             })
-            .then(function (apps) {
+            .then(function (allApps) {
 
                 let rootDomain = self.dataStore.getRootDomain();
                 let dotRootDomain = "." + rootDomain;
@@ -496,9 +491,9 @@ class ServiceManager {
                         'Domain name is not accepted. Custom domain cannot be subdomain of root domain.');
                 }
 
-                if (collidesWithAnyExistingApp(apps, rootDomain, customDomain)) {
-                    throw ApiStatusCodes.createError(ApiStatusCodes.STATUS_ERROR_BAD_NAME,
-                        'Domain name is not accepted. Custom domain collides with existing app.');
+                const availabilityError = checkNameAvailability(allApps, rootDomain, customDomain);
+                if (availabilityError) {
+                    throw availabilityError;
                 }
 
             })

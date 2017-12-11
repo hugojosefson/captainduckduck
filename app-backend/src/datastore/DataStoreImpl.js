@@ -7,6 +7,7 @@ const isValidPath = require('is-valid-path');
 const fs = require('fs-extra');
 const ApiStatusCodes = require('../api/ApiStatusCodes');
 const CaptainConstants = require('../utils/CaptainConstants');
+const {checkNameAvailability} = require('../utils/Availability');
 const Logger = require('../utils/Logger');
 
 const dockerfilesRoot = __dirname + '/../dockerfiles/';
@@ -295,15 +296,23 @@ class DataStore {
                     throw new Error('App could not be found ' + appName);
                 }
 
-                app.customDomain = app.customDomain || [];
-
-                if (app.customDomain.length > 0) {
-                    for (let idx = 0; idx < app.customDomain.length; idx++) {
-                        if (app.customDomain[idx].publicDomain === customDomain) {
-                            throw new Error('App already has customDomain: ' + customDomain + ' attached to app ' + appName);
-                        }
+                const rootDomain = self.getRootDomain();
+                if (customDomain.endsWith('.' + rootDomain)) {
+                    const possibleAppName = customDomain.slice(0, -rootDomain.length);
+                    if (Object.keys(allApps).includes(possibleAppName)) {
+                        throw new Error('app already exists: ' + possibleAppName);
                     }
                 }
+
+                Object.entries(allApps).forEach(([existingAppName, existingApp]) => {
+                    (existingApp.customDomain || []).forEach(({publicDomain}) => {
+                        if (publicDomain === customDomain) {
+                            throw new Error('customDomain is already assigned: ' + customDomain + ' attached to app ' + existingAppName);
+                        }
+                    });
+                });
+
+                app.customDomain = app.customDomain || [];
 
                 app.customDomain.push({
                     publicDomain: customDomain,
@@ -884,8 +893,11 @@ class DataStore {
                 return;
             }
 
-            if (!!self.data.get(APP_DEFINITIONS + '.' + appName)) {
-                reject(ApiStatusCodes.createError(ApiStatusCodes.STATUS_ERROR_ALREADY_EXIST, 'App Name already exists. Please use a different name.'));
+            const rootDomain = self.getRootDomain();
+            const allApps = self.data.get(APP_DEFINITIONS);
+            const availabilityError = checkNameAvailability(allApps, rootDomain, appName + '.' + rootDomain);
+            if (availabilityError) {
+                reject(availabilityError);
                 return;
             }
 
